@@ -143,6 +143,7 @@ class LazyBuffer:
         if self.op.op in BinaryOps: self.op = _ast_binaryops(self)
       elif self.optype is LoadOps: LOAD_OPS_DISPATCHER[cast(LoadOps, self.op.op)](self)
       # run the ast if we still have to, and log the op
+      kernel_op = False
       if not self.realized:
         for x in self.op.buffers: x.realize()
 
@@ -155,6 +156,8 @@ class LazyBuffer:
             self.op = LazyOp(UnaryOps.CAST, (self.op,), dtypes.float32)
           self.dtype = dtypes.float32
         self.realized = Device[self.device].exec_ast(self.op, output=self, **self._device_extra_args())
+        if type(Device[self.device]) == Compiled and not (self.op.op in MovementOps and self.op.src[0].__class__ is not LazyOp and self.op.src[0].realized): # this's ~just the complement of the condition from ops.Compiled
+          kernel_op = True
 
       assert self.realized and isinstance(self.realized, (RawConst, Device[self.device].buffer)), f"device mismatch on realized got {type(self.realized)} expected {self.device}"
       # HACK: allow hot casting of images
@@ -164,7 +167,7 @@ class LazyBuffer:
       # log to the graph
       if (DEBUG or GRAPH) and (self.realized.__class__ is not RawConst or GRAPH >= 2):
         from tinygrad.graph import log_op
-        log_op(self, self.op)
+        log_op(self, self.op, kernel_op=kernel_op)
 
       # no need to keep the op after realization
       del self.op
