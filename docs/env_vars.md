@@ -15,7 +15,7 @@ These control the behavior of core tinygrad even when used as a library.
 
 Variable | Possible Value(s) | Description
 ---|---|---
-DEBUG               | [1-4]      | enable debugging output, with 4 you get operations, timings, speed, generated code and more
+DEBUG               | [1-6]      | enable debugging output, with 4 you get operations, timings, speed, generated code and more
 GPU                 | [1]        | enable the GPU backend
 CUDA                | [1]        | enable CUDA backend
 CPU                 | [1]        | enable CPU backend
@@ -28,7 +28,7 @@ LLVM                | [1]        | enable LLVM backend
 LLVMOPT             | [1]        | enable slightly more expensive LLVM optimizations
 LAZY                | [1]        | enable lazy operations (this is the default)
 OPT                 | [1-4]      | optimization level
-GRAPH               | [1]        | create a graph of all operations (requires graphviz)
+GRAPH               | [1-3]      | create a graph of all operations (requires graphviz)
 GRAPHPATH           | [/path/to] | where to put the generated graph
 PRUNEGRAPH          | [1]        | prune MovementOps and LoadOps from the graph
 PRINT_PRG           | [1]        | print program code
