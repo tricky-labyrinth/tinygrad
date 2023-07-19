@@ -7,7 +7,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional
 from tinygrad.ops import UnaryOps, BinaryOps, ReduceOps, MovementOps, LoadOps, FusedOps, Op, OpType, LazyOp
 from tinygrad.tensor import LazyBuffer
-from tinygrad.helpers import GRAPH, GRAPHPATH, PRUNEGRAPH, DEBUG, GlobalCounters
+from tinygrad.helpers import GRAPH, GRAPHPATH, PRUNEGRAPH, DARKGRAPH, DEBUG, GlobalCounters
 from tinygrad.runtime.lib import RawConst
 
 # **** debugging and graphing ****
@@ -24,6 +24,9 @@ if GRAPH:
   def save_graph_exit():
     for k,v in cnts.items(): print(k, v)
     if PRUNEGRAPH: prune_graph()
+    if DARKGRAPH:
+      G.graph["graph"] = {"bgcolor" : "black"}
+      G.graph["edge"] = {"color" : "white", "fontcolor" : "white"}
     print("saving", G)
     nx.drawing.nx_pydot.write_dot(G, f'{GRAPHPATH}.dot')
     # -Gnslimit=100 can make it finish, but you won't like results
@@ -61,14 +64,15 @@ def log_op(ret: LazyBuffer, ast: LazyOp, show_graph: Optional[bool] = None, phan
     dashed = (optype == LoadOps and hasattr(ret, "_backing")) or (hasattr(ret, "st") and not ret.st.contiguous)  # type: ignore
 
     for x in inp:
-      G.add_edge(nm(x), nm(ret), label=get_sop(op), color='#00000060' if phantom else 'black')
+      G.add_edge(nm(x), nm(ret), label=get_sop(op))
+      if phantom: G.edges[nm(x), nm(ret)]['color'] = '#00FFFF9F' if DARKGRAPH else '#00000060'
       if 'label' not in G.nodes[nm(x)]:
         G.nodes[nm(x)]['label'] = str(x.shape)+str_dtype(ret.dtype)
     if nm(ret) not in G.nodes: G.add_node(nm(ret))
 
     G.nodes[nm(ret)]['label'] = (str(set(x.shape for x in inp))+"\n"+str(ret.shape) if optype == ReduceOps else str(ret.shape))+str_dtype(ret.dtype)
     G.nodes[nm(ret)]['fillcolor'] = (top_colors[optype] + ('60' if phantom else ('80' if dashed else str()))) if optype in top_colors else "#ffffff"
-    G.nodes[nm(ret)]['color'] = 'white' if phantom else 'black'
+    G.nodes[nm(ret)]['color'] = 'white' if phantom ^ bool(DARKGRAPH) else 'black'
     G.nodes[nm(ret)]['style'] = ('filled, dashed' if dashed else 'filled')
     G.nodes[nm(ret)]['prunable'] = optype in [LoadOps, MovementOps]
 

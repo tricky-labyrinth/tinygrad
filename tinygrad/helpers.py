@@ -48,7 +48,7 @@ class ContextVar:
   def value(self): return ContextVar.ctx_stack[-1][self.key] if self.key in ContextVar.ctx_stack[-1] else self.initial_value
 
 DEBUG, IMAGE = ContextVar("DEBUG", 0), ContextVar("IMAGE", 0)
-GRAPH, PRUNEGRAPH, GRAPHPATH = getenv("GRAPH", 0), getenv("PRUNEGRAPH", 0), getenv("GRAPHPATH", "/tmp/net")
+GRAPH, PRUNEGRAPH, GRAPHPATH, DARKGRAPH = getenv("GRAPH", 0), getenv("PRUNEGRAPH", 0), getenv("GRAPHPATH", "/tmp/net"), getenv("DARKGRAPH", 0)
 
 class Timing(object):
   def __init__(self, prefix="", on_exit=None, enabled=True): self.prefix, self.on_exit, self.enabled = prefix, on_exit, enabled
