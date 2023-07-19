@@ -5,7 +5,7 @@ except ImportError:
   nx = None # graph won't work
 from collections import defaultdict
 from typing import Dict, List, Optional, Union
-from tinygrad.ops import UnaryOps, BinaryOps, ReduceOps, MovementOps, LoadOps, FusedOps, Op, OpType, LazyOp
+from tinygrad.ops import UnaryOps, BinaryOps, ReduceOps, MovementOps, LoadOps, TernaryOps, Op, OpType, LazyOp
 from tinygrad.tensor import LazyBuffer
 from tinygrad.helpers import GRAPH, GRAPHPATH, PRUNEGRAPH, DARKGRAPH, DEBUG, GlobalCounters
 from tinygrad.runtime.lib import RawConst
@@ -101,27 +101,25 @@ def log_intermediate_op(parent: Union[LazyBuffer, LazyOp], cur: Union[LazyBuffer
   if type(cur) == LazyOp:
     child_shapes = [log_intermediate_op(cur, s) for s in cur.src]
 
-    if type(cur_op) in [BinaryOps, UnaryOps, FusedOps]:
+    if type(cur_op) in [BinaryOps, UnaryOps, TernaryOps]:
       inherited_shape = child_shapes[0]
     elif type(cur_op) == ReduceOps:
       inherited_shape = cur.arg
-    elif type(cur_op) in [MovementOps, LoadOps, FusedOps]:
-      raise NotImplementedError()
     else:
-      raise NotImplementedError()
+      raise NotImplementedError() # this shouldn't happen?
 
-  else: pass # buffers are DAG leaves
+  else: inherited_shape = cur.shape # buffers are DAG leaves
 
   G.add_node(nm(cur))
   if any(attr not in G.nodes[nm(cur)] for attr in ['label', 'fillcolor', 'color', 'style', 'prunable']):
     dashed = type(cur) == LazyBuffer and not cur.realized and ((cur_op.op == LoadOps and hasattr(cur, "_backing")) or (hasattr(cur, "st") and not cur.st.contiguous))
-    G.nodes[nm(cur)]['label'] = f"inter-buffer {cur.shape}{str_dtype(cur.dtype)}" if type(cur) == LazyBuffer else f"inter-op {inherited_shape}"
+    G.nodes[nm(cur)]['label'] = f"inter-buffer {inherited_shape}{str_dtype(cur.dtype)}" if type(cur) == LazyBuffer else f"inter-op {inherited_shape}"
     G.nodes[nm(cur)]['fillcolor'] = (top_colors[type(cur_op)] + ('60' if phantom else ('80' if dashed else str()))) if type(cur_op) in top_colors else "#ffffff"
     G.nodes[nm(cur)]['color'] = 'white' if phantom ^ bool(DARKGRAPH) else 'black'
     G.nodes[nm(cur)]['style'] = ('filled, dashed' if dashed else 'filled')
     G.nodes[nm(cur)]['prunable'] = type(cur_op) in [LoadOps, MovementOps]
 
-  return inherited_shape if type(cur) == LazyOp else cur.shape
+  return inherited_shape
 
 top_colors = {LoadOps: '#FFFF80', UnaryOps: "#c0c0c0", ReduceOps: "#8080ff", BinaryOps: "#c0c0c0", MovementOps: "#80ff80", FusedOps: "#ff8080"}
 def log_op(ret: LazyBuffer, ast: LazyOp, show_graph: Optional[bool] = None, phantom=False, kernel_op=False):
@@ -129,8 +127,6 @@ def log_op(ret: LazyBuffer, ast: LazyOp, show_graph: Optional[bool] = None, phan
   if not DEBUG and not show_graph: return
   op: List[Op] = [x.op for x in ast.get_lazyops()]
   inp: List[LazyBuffer] = [x for x in ast.buffers if not isinstance(x.realized, RawConst)]
-  # oporder = [LoadOps, FusedOps, ReduceOps, BinaryOps, UnaryOps, MovementOps]
-  # optype = type(sorted(op, key=lambda x: oporder.index(type(x)))[0])
   optype = type(ast.op)
   cnts[optype] += 1
   if DEBUG >= 6: print(f"{op} : {', '.join([f'{x.shape}-<{nm(x)}>' for x in inp])} -> {ret.shape}-<{nm(ret)}>")
